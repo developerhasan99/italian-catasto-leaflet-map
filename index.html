@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Catasto Fabbricati Trasparenza Mappe</title>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="stylesheet" href="dist/leaflet.css" />
+    <script src="dist/leaflet.js"></script>
+    <link rel="stylesheet" href="unpkg/leaflet-pegman.css" />
+    <script src="unpkg/leaflet-pegman.js"></script>
+    <script src="unpkg/jszip.min.js"></script>
+    <script src="unpkg/togeojson.js"></script>
+    <script src="unpkg/geojson-vt.js"></script>
+    <script src="unpkg/KMZParser.js"></script>
+    <script src="unpkg/GridLayer.GeoJSON.js"></script>
+    <script src="unpkg/leaflet-transparency.js"></script>
+    <script type="text/javascript" src="cdnjs/proj4-src.min.js"></script>
+    <script
+      type="text/javascript"
+      src="dist/leaflet.zoomdisplay-src.js"
+    ></script>
+    <link rel="stylesheet" href="dist/leaflet.zoomdisplay.css" />
+    <link rel="stylesheet" href="dist/leaflet.css" />
+    <link rel="stylesheet" href="dist/Control.Geocoder.css" />
+    <script src="dist/Control.Geocoder.js"></script>
+    <link rel="stylesheet" href="font-awesome-4.7.0/css/font-awesome.min.css" />
+    <link rel="stylesheet" href="dist/L.Control.Locate.min.css" />
+
+    <script src="dist/L.Control.Locate.min.js" charset="utf-8"></script>
+
+    <style>
+      html,
+      body,
+      .map {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+    <style>
+      /* Fixes Google Mutant Empty attribution */
+      .leaflet-bottom.leaflet-left,
+      .leaflet-bottom.leaflet-right {
+        margin-bottom: initial !important;
+      }
+
+      /* Make Google Logo/ToS/Feedback links clickable */
+      .leaflet-google-mutant a,
+      .leaflet-google-mutant button {
+        pointer-events: auto;
+      }
+
+      /* Move Google ToS/Feedback to the top */
+      .leaflet-google-mutant .gmnoprint,
+      .leaflet-google-mutant .gm-style-cc {
+        top: 0;
+        bottom: auto !important;
+      }
+
+      .leaflet-popup-content {
+        margin: 20px;
+      }
+    </style>
+    <style>
+      .leaflet-control.opacity-control {
+        margin-right: 10px;
+        background-color: rgba(255, 255, 255, 0.5);
+        border-radius: 2.5px;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        -webkit-animation: BLINK-ANIMATION 1s linear 5;
+        -moz-animation: BLINK-ANIMATION 1s linear 5;
+        -o-animation: BLINK-ANIMATION 1s linear 5;
+        animation: BLINK-ANIMATION 1s linear 5;
+      }
+
+      .leaflet-control.opacity-control:hover {
+        background-color: rgba(255, 255, 255, 0.85);
+      }
+
+      .leaflet-left .leaflet-control.opacity-control {
+        margin-left: 40px;
+      }
+
+      .leaflet-right .leaflet-control.opacity-control {
+        margin-right: 13px;
+      }
+
+      @-webkit-keyframes BLINK-ANIMATION {
+        0%,
+        49% {
+          background-color: #ff0;
+        }
+
+        50%,
+        100% {
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map" class="map"></div>
+
+    <script>
+      // Add definitions to Proj4
+      proj4.defs(
+        "WGS84",
+        "+proj=longlat +ellps=WGS84 +datum=WGS84 +units=degrees"
+      );
+      proj4.defs(
+        "EPSG:6706",
+        "+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs"
+      );
+
+      var opts = {
+        map: {
+          center: [45.398358, 11.876553],
+          zoom: 17,
+          markerZoomAnimation: false,
+        },
+        osmLayer: {
+          url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          options: {
+            attribution:
+              'Map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 20,
+          },
+        },
+        layersControl: {
+          options: {
+            collapsed: true,
+            position: "topleft",
+          },
+        },
+      };
+
+      // Initialize the Map
+      var map = new L.Map("map", opts.map);
+
+      // Add the base layer to the map
+      L.tileLayer("https://a.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          "<a href='https://operations.osmfoundation.org/policies/tiles/'>&copy; OSM</a>",
+      }).addTo(map);
+
+      // Extend the TileLayer to work with dynamic url and add to the layer to the map
+      L.TileLayer.Catasto = L.TileLayer.extend({
+        getTileUrl: function (coords) {
+          return (
+            "https://wms.cartografia.agenziaentrate.gov.it/inspire/wms/ows01.php?language=ita&service=WMS&version=1.3.0&request=GetMap&bbox=" +
+            bbox(coords.x, coords.y, coords.z) +
+            "&crs=EPSG:6706&width=256&height=256&layers=province,CP.CadastralZoning,acque,CP.CadastralParcel,fabbricati,codice_plla,simbolo_graffa&styles=default&format=image/png&DPI=96&map_resolution=96&format_options=dpi:96&transparent=true"
+          );
+        },
+        getAttribution: function () {
+          return "<a href='https://www.agenziaentrate.gov.it/portale/it/web/guest/schede/fabbricatiterreni/consultazione-cartografia-catastale/servizio-consultazione-cartografia'>Agenzie delle Entrate</a>";
+        },
+      });
+
+      L.tileLayer.Catasto = function () {
+        return new L.TileLayer.Catasto();
+      };
+      L.layerGroup([L.tileLayer.Catasto().addTo(map)]);
+
+      // Work With layers Control
+      var baseLayers = {};
+
+      baseLayers["MappaStradale"] = new L.TileLayer(
+        opts.osmLayer.url,
+        opts.osmLayer.options
+      );
+      baseLayers["Mappa Catastale"] = L.tileLayer.Catasto();
+
+      var controlLayers = L.control.layers(
+        baseLayers,
+        null,
+        opts.layersControl.options
+      );
+
+      controlLayers.addTo(map);
+
+      // Catasto details popup on map click
+      var popup = L.popup();
+      var query_url =
+        "https://wms.cartografia.agenziaentrate.gov.it/inspire/ajax/ajax.php?op=getDatiOggetto&";
+
+      function onMapClick(e) {
+        var zoomValue = map.getZoom();
+        var lat = e.latlng.lat;
+        var lng = e.latlng.lng;
+        let testUrl = query_url + "lon=" + lng + "&" + "lat=" + lat;
+        let allegato = "";
+        let codice_comune = "";
+        let denominazione = "";
+        let foglio = "";
+        let num_particella = "";
+        let sezione = "";
+        let sigla_provincia = "";
+        let sviluppo = "";
+        let tipologia = "";
+
+        //fetch the data from server
+        fetch(testUrl)
+          .then((res) => res.json())
+          .then((out) => {
+            allegato = out.ALLEGATO;
+            codice_comune = out.COD_COMUNE;
+            denominazione = out.DENOM;
+            foglio = out.FOGLIO;
+            num_particella = out.NUM_PART;
+            sezione = out.SEZIONE;
+            sigla_provincia = out.SIGLA_PROV;
+            sviluppo = out.SVILUPPO;
+            tipologia = out.TIPOLOGIA;
+
+            // collezione mappa delle varibili risultanti
+            const mapRisultato = new Map();
+            mapRisultato.set(" Tipologia :", tipologia);
+            mapRisultato.set(" Località :", denominazione);
+            mapRisultato.set(" Codice Comune :", codice_comune);
+            mapRisultato.set(" Provincia :", sigla_provincia);
+            mapRisultato.set(" Foglio N:", foglio);
+            mapRisultato.set(" Numero Particella:", num_particella);
+            mapRisultato.set(" Sezione :", sezione);
+            mapRisultato.set(" Sviluppo :", sviluppo);
+            mapRisultato.set(" Allegato :", allegato);
+
+            for (const [key, value] of mapRisultato) {
+              if (value === "null") {
+                mapRisultato.delete(key);
+              }
+              if (value === undefined) {
+                mapRisultato.delete(key);
+              }
+              if (value === " ") {
+                mapRisultato.delete(key);
+              }
+            }
+
+            let fine = "";
+            let li = "<li>";
+            let liEnd = "</li>";
+
+            for (const [key, value] of mapRisultato) {
+              fine = fine
+                .concat(li)
+                .concat(key)
+                .concat(" ")
+                .concat(value)
+                .concat(liEnd);
+            }
+
+            if (zoomValue <= 16) {
+              fine = "";
+
+              fine = fine
+                .concat("<hr>")
+                .concat("Lo Zoom è su  : " + zoomValue)
+                .concat("<hr>")
+                .concat("Per Fabbricati")
+                .concat("<br>")
+                .concat("Livello  17 o 18")
+                .concat("<br>")
+                .concat("Tasti + o -")
+                .concat("<br>")
+                .concat("in alto a sinistra");
+            }
+            fine = fine
+              .concat("<hr>")
+              .concat("Lat: ")
+              .concat(lat.toFixed(6))
+              .concat("<hr>")
+              .concat("Lng: ")
+              .concat(lng.toFixed(6));
+
+            popup.setLatLng(e.latlng).setContent(fine).openOn(map);
+          })
+          .catch((err) => {
+            throw err;
+          });
+      }
+      map.on("click", onMapClick);
+
+      // Utility Functions
+      function bbox(x, y, z) {
+        var bl_lng = tile2long(x, z);
+        var tr_lng = tile2long(x + 1, z);
+        var bl_lat = tile2lat(y + 1, z);
+        var tr_lat = tile2lat(y, z);
+        var bl = proj4("WGS84", "EPSG:6706", [bl_lng, bl_lat]);
+        var tr = proj4("WGS84", "EPSG:6706", [tr_lng, tr_lat]);
+
+        return bl[1] + "," + bl[0] + "," + tr[1] + "," + tr[0];
+      }
+      function tile2long(x, z) {
+        return (x / Math.pow(2, z)) * 360 - 180;
+      }
+      function tile2lat(y, z) {
+        var n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
+        return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+      }
+    </script>
+  </body>
+</html>
